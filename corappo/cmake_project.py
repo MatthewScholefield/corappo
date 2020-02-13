@@ -114,7 +114,7 @@ class CMakeProject:
         if self.cstandards:
             if len(self.cstandards) > 1:
                 print('Warning: multiple c standards', file=sys.stderr)
-            standard = max(self.cxxstandards)
+            standard = max(self.cstandards)
             m = re.search(r'[0-9]{2}', standard)
             if m:
                 parts.append('set(CMAKE_C_STANDARD {})'.format(m.group(0)))
