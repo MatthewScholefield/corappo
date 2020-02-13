@@ -32,12 +32,11 @@ class CMakeProject:
         self._name = name
         self.deps = {}
         self.defines = {}
+        self.flags = {}
         self.targets = {}
         self.cxxstandards = set()
         self.cstandards = set()
         self.include_dirs = set()
-        self.other_cxx_flags = []
-        self.other_c_flags = []
         self.pthread = False
 
     @property
@@ -60,14 +59,9 @@ class CMakeProject:
             return
         args = parse_compiler_args(line.split(' '))
         if tool in ['gcc', 'clang']:
-            flags = self.other_c_flags
             standards = self.cstandards
         else:
-            flags = self.other_cxx_flags
             standards = self.cxxstandards
-        for flag in args.flags:
-            if flag not in flags:
-                flags.append(flag)
         self.include_dirs.update(args.include_dirs or [])
         if args.standard:
             standards.add(args.standard)
@@ -76,11 +70,13 @@ class CMakeProject:
                 assert len(args.inputs) == 1, 'Too many inputs: ' + str(args.inputs)
                 self.deps[args.output] = [args.inputs[0]]
                 self.defines[args.output] = [args.defines or []]
+                self.flags[args.output] = [args.flags or []]
             else:
                 for filename in args.inputs:
                     obj = splitext(filename)[0] + '.o'
                     self.deps[obj] = [filename]
                     self.defines[obj] = [args.defines or []]
+                    self.flags[obj] = [args.flags or []]
         else:
             exe = args.output or 'a.out'
             self.deps[exe] = args.inputs
@@ -89,9 +85,15 @@ class CMakeProject:
                 if f in self.defines:
                     parts += [f]
             self.defines[exe] = parts
+            flags = [args.flags or []]
+            for f in args.inputs:
+                if f in self.flags:
+                    flags += [f]
+            self.flags[exe] = flags
             sources = self.get_leaves(exe, self.deps)
             defines = sum(self.get_leaves(exe, self.defines), [])
-            target = CMakeTarget(exe, sources, defines, args.libs)
+            flags = sum(self.get_leaves(exe, self.flags), [])
+            target = CMakeTarget(exe, sources, defines, args.libs, list(set(flags)))
             if args.pthread:
                 target.libs.append('${CMAKE_THREAD_LIBS_INIT}')
                 self.pthread = True
@@ -110,7 +112,10 @@ class CMakeProject:
             if m:
                 parts.append('set(CMAKE_CXX_STANDARD {})'.format(m.group(0)))
             else:
-                self.other_cxx_flags.append('-std=' + standard)
+                flag = '-std=' + standard
+                for i in self.targets.values():
+                    if flag not in i.flags:
+                        i.flags.append(flag)
         if self.cstandards:
             if len(self.cstandards) > 1:
                 print('Warning: multiple c standards', file=sys.stderr)
@@ -119,11 +124,10 @@ class CMakeProject:
             if m:
                 parts.append('set(CMAKE_C_STANDARD {})'.format(m.group(0)))
             else:
-                self.other_c_flags.append('-std=' + standard)
-        if self.other_cxx_flags:
-            parts.append('set(CMAKE_CXX_FLAGS "${{CMAKE_CXX_FLAGS}} {}")'.format(' '.join(self.other_cxx_flags)))
-        if self.other_c_flags:
-            parts.append('set(CMAKE_C_FLAGS "${{CMAKE_C_FLAGS}} {}")'.format(' '.join(self.other_c_flags)))
+                flag = '-std=' + standard
+                for i in self.targets.values():
+                    if flag not in i.flags:
+                        i.flags.append(flag)
         if self.pthread:
             parts.append('find_package(Threads)')
         if self.include_dirs:
