@@ -17,5 +17,5 @@ class CMakeTarget:
             args = [self.name] + ['PUBLIC'] + self.defines
             parts += ['target_compile_definitions({})'.format(format_multiline(args))]
         if self.flags:
-            parts += ['target_compile_options({})'.format(format_multiline([i + ';' for i in self.flags]))]
+            parts += ['target_compile_options({})'.format([self.name] + 'PRIVATE' + format_multiline([i + ';' for i in self.flags]))]
         return '\n\n'.join(parts)
