@@ -123,7 +123,7 @@ class CMakeProject:
         if self.other_cxx_flags:
             parts.append('set(CMAKE_CXX_FLAGS "${{CMAKE_CXX_FLAGS}} {}")'.format(' '.join(self.other_cxx_flags)))
         if self.other_c_flags:
-            parts.append('set(CMAKE_C_FLAGS "${{CMAKE_C_FLAGS}} {}")'.format(' '.join(self.other_cxx_flags)))
+            parts.append('set(CMAKE_C_FLAGS "${{CMAKE_C_FLAGS}} {}")'.format(' '.join(self.other_c_flags)))
         if self.pthread:
             parts.append('find_package(Threads)')
         if self.include_dirs:
