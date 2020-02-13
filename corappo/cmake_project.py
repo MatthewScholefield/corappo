@@ -11,7 +11,6 @@ from corappo.formatting import format_multiline
 def parse_compiler_args(args):
     parser = ArgumentParser()
     parser.add_argument('-o', dest='output')
-    parser.add_argument('-g', dest='debug', action='store_true')
     parser.add_argument('-c', dest='compile_only', action='store_true')
     parser.add_argument('-O', dest='optimize', type=int)
     parser.add_argument('-D', dest='defines', action='append')
@@ -34,9 +33,11 @@ class CMakeProject:
         self.deps = {}
         self.defines = {}
         self.targets = {}
-        self.standards = set()
+        self.cxxstandards = set()
+        self.cstandards = set()
         self.include_dirs = set()
-        self.other_flags = []
+        self.other_cxx_flags = []
+        self.other_c_flags = []
         self.pthread = False
 
     @property
@@ -58,12 +59,18 @@ class CMakeProject:
         else:
             return
         args = parse_compiler_args(line.split(' '))
+        if tool in ['gcc', 'clang']:
+            flags = self.other_c_flags
+            standards = self.cstandards
+        else:
+            flags = self.other_cxx_flags
+            standards = self.cxxstandards
         for flag in args.flags:
-            if flag not in self.other_flags:
-                self.other_flags.append(flag)
+            if flag not in flags:
+                flags.append(flag)
         self.include_dirs.update(args.include_dirs or [])
         if args.standard:
-            self.standards.add(args.standard)
+            standards.add(args.standard)
         if args.compile_only:
             if args.output:
                 assert len(args.inputs) == 1, 'Too many inputs: ' + str(args.inputs)
@@ -95,17 +102,28 @@ class CMakeProject:
             'cmake_minimum_required(VERSION 2.8)',
             'project({})'.format(self.name)
         ]
-        if self.standards:
-            if len(self.standards) > 1:
+        if self.cxxstandards:
+            if len(self.cxxstandards) > 1:
                 print('Warning: multiple c++ standards', file=sys.stderr)
-            standard = max(self.standards)
+            standard = max(self.cxxstandards)
             m = re.search(r'[0-9]{2}', standard)
             if m:
                 parts.append('set(CMAKE_CXX_STANDARD {})'.format(m.group(0)))
             else:
-                self.other_flags.append('-std=' + standard)
-        if self.other_flags:
-            parts.append('set(CMAKE_CXX_FLAGS "${{CMAKE_CXX_FLAGS}} {}")'.format(' '.join(self.other_flags)))
+                self.other_cxx_flags.append('-std=' + standard)
+        if self.cstandards:
+            if len(self.cstandards) > 1:
+                print('Warning: multiple c standards', file=sys.stderr)
+            standard = max(self.cxxstandards)
+            m = re.search(r'[0-9]{2}', standard)
+            if m:
+                parts.append('set(CMAKE_C_STANDARD {})'.format(m.group(0)))
+            else:
+                self.other_c_flags.append('-std=' + standard)
+        if self.other_cxx_flags:
+            parts.append('set(CMAKE_CXX_FLAGS "${{CMAKE_CXX_FLAGS}} {}")'.format(' '.join(self.other_cxx_flags)))
+        if self.other_c_flags:
+            parts.append('set(CMAKE_C_FLAGS "${{CMAKE_C_FLAGS}} {}")'.format(' '.join(self.other_cxx_flags)))
         if self.pthread:
             parts.append('find_package(Threads)')
         if self.include_dirs:
