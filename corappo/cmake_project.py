@@ -93,7 +93,13 @@ class CMakeProject:
             sources = self.get_leaves(exe, self.deps)
             defines = sum(self.get_leaves(exe, self.defines), [])
             flags = sum(self.get_leaves(exe, self.flags), [])
-            target = CMakeTarget(exe, sources, defines, args.libs, list(set(flags)))
+
+            disable_prefix = False
+            if splitext(exe)[-1] == '.so':
+                exe = splitext(exe)[0]
+                disable_prefix = True
+
+            target = CMakeTarget(exe, sources, defines, args.libs, list(set(flags)), disable_prefix)
             if args.pthread:
                 target.libs.append('${CMAKE_THREAD_LIBS_INIT}')
                 self.pthread = True
@@ -132,6 +138,12 @@ class CMakeProject:
             parts.append('find_package(Threads)')
         if self.include_dirs:
             parts.append('include_directories({})'.format(format_multiline(sorted(self.include_dirs))))
+
         for target in self.targets.values():
-            parts.append(str(target))
+            if target.is_library:
+                parts.append(str(target))
+        for i in sorted(self.targets):
+            target = self.targets[i]
+            if not target.is_library:
+                parts.append(str(target))
         return '\n\n'.join(parts)

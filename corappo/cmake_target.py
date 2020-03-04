@@ -2,12 +2,17 @@ from corappo.formatting import format_multiline
 
 
 class CMakeTarget:
-    def __init__(self, name, sources=None, defines=None, libs=None, flags=None):
+    def __init__(self, name, sources=None, defines=None, libs=None, flags=None, disable_prefix=False):
         self.name = name
         self.sources = sources or []
         self.defines = defines or []
         self.libs = libs or []
         self.flags = flags or []
+        self.disable_prefix = disable_prefix
+
+    @property
+    def is_library(self):
+        return '-shared' in self.flags
 
     def __str__(self):
         flags = list(self.flags)
@@ -15,6 +20,8 @@ class CMakeTarget:
         if '-shared' in flags:
             flags.remove('-shared')
             parts += ['add_library({})'.format(format_multiline([self.name] + ['SHARED'] + self.sources))]
+            if self.disable_prefix:
+                parts += ['set_target_properties({} PROPERTIES PREFIX "")'.format(self.name)]
         else:
             parts += ['add_executable({})'.format(format_multiline([self.name] + self.sources))]
         if self.libs:
