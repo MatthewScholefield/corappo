@@ -27,7 +27,7 @@ class CMakeTarget:
         if self.libs:
             parts += ['target_link_libraries({})'.format(format_multiline([self.name] + self.libs))]
         if self.defines:
-            args = [self.name] + ['PUBLIC'] + self.defines
+            args = [self.name] + ['PUBLIC'] + sorted(set(self.defines))
             parts += ['target_compile_definitions({})'.format(format_multiline(args))]
         if flags:
             args = [self.name] + ['PRIVATE'] + [i + ';' for i in flags]
